@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DQL na Prática — ObservaTrace</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #080f1e;
+    --navy2: #0d1a30;
+    --blue: #1a3a6b;
+    --accent: #2d7aff;
+    --accent2: #00e5ff;
+    --text: #e8edf5;
+    --muted: #7a8fa8;
+    --card: #0d1a2e;
+    --border: rgba(45,122,255,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ---- GRID BACKGROUND ---- */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(45,122,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(45,122,255,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ---- NAV ---- */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 48px;
+    background: rgba(8,15,30,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .nav-logo span { color: var(--accent); }
+
+  .nav-cta {
+    background: var(--accent);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .nav-cta:hover { background: #1a5fe0; transform: translateY(-1px); }
+
+  /* ---- HERO ---- */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120px 48px 80px;
+    z-index: 1;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(45,122,255,0.15) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .hero-glow2 {
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(0,229,255,0.08) 0%, transparent 70%);
+    top: 20%;
+    right: 10%;
+    pointer-events: none;
+  }
+
+  .hero-inner {
+    max-width: 860px;
+    text-align: center;
+    position: relative;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(45,122,255,0.1);
+    border: 1px solid rgba(45,122,255,0.3);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent2);
+    margin-bottom: 32px;
+    animation: fadeUp 0.6s ease forwards;
+  }
+
+  .badge-dot {
+    width: 6px; height: 6px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(42px, 7vw, 80px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+    position: relative;
+  }
+
+  .hero h1 em::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+  }
+
+  .hero-sub {
+    font-size: 18px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 600px;
+    margin: 0 auto 48px;
+    font-weight: 300;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent);
+    color: white;
+    padding: 16px 36px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+  }
+
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(45,122,255,0.4); }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 14px;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .btn-secondary:hover { color: var(--text); }
+
+  .price-badge {
+    margin-top: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+
+  .price-old {
+    font-size: 16px;
+    color: var(--muted);
+    text-decoration: line-through;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .price-new {
+    font-family: 'Space Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .price-tag {
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.3);
+    color: var(--accent2);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ---- STATS ---- */
+  .stats {
+    position: relative;
+    z-index: 1;
+    padding: 0 48px 80px;
+  }
+
+  .stats-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .stat {
+    background: var(--card);
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ---- SECTIONS ---- */
+  section {
+    position: relative;
+    z-index: 1;
+    padding: 80px 48px;
+  }
+
+  .section-inner { max-width: 900px; margin: 0 auto; }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    max-width: 60px;
+    height: 1px;
+    background: var(--accent2);
+    opacity: 0.4;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+
+  .section-sub {
+    font-size: 16px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 580px;
+    margin-bottom: 56px;
+  }
+
+  /* ---- FOR WHOM ---- */
+  .pain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .pain-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .pain-card:hover {
+    border-color: rgba(45,122,255,0.5);
+    transform: translateY(-2px);
+  }
+
+  .pain-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+
+  .pain-icon {
+    font-size: 28px;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .pain-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  .pain-card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ---- CHAPTERS ---- */
+  .chapters {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .chapter {
+    display: flex;
+    gap: 24px;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+    transition: background 0.2s;
+    cursor: default;
+  }
+
+  .chapter:last-child { border-bottom: none; }
+
+  .chapter-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 32px;
+    padding-top: 4px;
+    opacity: 0.6;
+  }
+
+  .chapter-content { flex: 1; }
+
+  .chapter h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .chapter p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+
+  .chapter-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    background: rgba(45,122,255,0.08);
+    border: 1px solid rgba(45,122,255,0.2);
+    color: var(--accent);
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    padding: 3px 10px;
+    border-radius: 4px;
+  }
+
+  .chapter-pages {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 4px;
+    white-space: nowrap;
+  }
+
+  /* ---- CODE PREVIEW ---- */
+  .code-section {
+    background: var(--navy2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-window {
+    background: #0a0f1a;
+    border: 1px solid rgba(45,122,255,0.2);
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .code-bar {
+    background: #111827;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .code-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+
+  .code-bar span {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .code-body {
+    padding: 28px;
+    font-size: 13px;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+
+  .c-comment { color: #4a6080; }
+  .c-keyword { color: #569cd6; }
+  .c-string { color: #ce9178; }
+  .c-func { color: #dcdcaa; }
+  .c-var { color: #9cdcfe; }
+  .c-num { color: #b5cea8; }
+  .c-op { color: #d4d4d4; }
+
+  /* ---- AUTHOR ---- */
+  .author-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px;
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .author-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .author-body { flex: 1; min-width: 220px; }
+
+  .author-body h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .author-role {
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 16px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .author-body p {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  .author-clients {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .client-tag {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* ---- CTA FINAL ---- */
+  .cta-section {
+    text-align: center;
+    padding: 100px 48px;
+  }
+
+  .cta-box {
+    max-width: 640px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .cta-box::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    z-index: -1;
+  }
+
+  .cta-inner {
+    background: var(--navy2);
+    border-radius: 19px;
+    padding: 64px 48px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cta-inner h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+    line-height: 1.15;
+  }
+
+  .cta-inner p {
+    font-size: 16px;
+    color: var(--muted);
+    margin-bottom: 40px;
+    line-height: 1.6;
+  }
+
+  .guarantee {
+    margin-top: 24px;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  /* ---- FOOTER ---- */
+  footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 32px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  footer .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+  }
+
+  footer .logo span { color: var(--accent); }
+
+  footer p {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ---- ANIMATIONS ---- */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ---- RESPONSIVE ---- */
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    section, .hero, .cta-section { padding-left: 20px; padding-right: 20px; }
+    .stats { padding-left: 20px; padding-right: 20px; }
+    footer { padding: 24px 20px; }
+    .author-card { padding: 28px; }
+    .cta-inner { padding: 40px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Observa<span>Trace</span></div>
+  <a href="#comprar" class="nav-cta">Quero o ebook →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+  <div class="hero-inner">
+    <div class="hero-badge">
+      <div class="badge-dot"></div>
+      Guia completo · Dynatrace Grail
+    </div>
+    <h1>Domine <em>DQL</em> de verdade — não só o básico</h1>
+    <p class="hero-sub">O guia prático para analistas e consultores Dynatrace que querem ir além dos dashboards automáticos e extrair o real poder do Grail.</p>
+    <div class="hero-actions">
+      <a href="#comprar" class="btn-primary">
+        <span>Quero o ebook agora</span>
+        <span>→</span>
+      </a>
+      <a href="#conteudo" class="btn-secondary">Ver o conteúdo ↓</a>
+    </div>
+    <div class="price-badge">
+      <span class="price-old">R$ 197</span>
+      <span class="price-new">R$ 97</span>
+      <span class="price-tag">Lançamento</span>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stats-inner">
+    <div class="stat">
+      <span class="stat-num">7</span>
+      <span class="stat-label">Capítulos</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">~74</span>
+      <span class="stat-label">Páginas</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">35+</span>
+      <span class="stat-label">Queries prontas</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">100%</span>
+      <span class="stat-label">Grail / Gen3</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">0</span>
+      <span class="stat-label">Pré-requisitos de código</span>
+    </div>
+  </div>
+</div>
+
+<!-- PARA QUEM -->
+<section>
+  <div class="section-inner">
+    <div class="section-label reveal">Para quem é este guia</div>
+    <h2 class="section-title reveal">Você reconhece alguma dessas situações?</h2>
+    <p class="section-sub reveal">Se sim, este ebook foi feito exatamente para você.</p>
+    <div class="pain-grid">
+      <div class="pain-card reveal">
+        <span class="pain-icon">🔍</span>
+        <h3>Usa o Dynatrace mas depende dos alertas automáticos</h3>
+        <p>O Davis AI resolve boa parte — mas quando precisam de um dado específico, o time não sabe como buscá-lo.</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">📊</span>
+        <h3>Cria dashboards mas as queries são sempre as mesmas</h3>
+        <p>Os painéis mostram as mesmas métricas de sempre. Ninguém sabe criar uma query customizada do zero.</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">⚡</span>
+        <h3>Ouviu falar do Grail mas não sabe a diferença prática</h3>
+        <p>A migração do Classic está chegando. Entender DQL agora é sair na frente — e evitar surpresas.</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">🤖</span>
+        <h3>Quer automatizar mas não sabe por onde começar</h3>
+        <p>Workflows + DQL podem eliminar horas de trabalho manual. O problema é que ninguém explica como combinar os dois.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTEUDO -->
+<section id="conteudo" style="background: var(--navy2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="section-inner">
+    <div class="section-label reveal">Conteúdo</div>
+    <h2 class="section-title reveal">O que você vai aprender</h2>
+    <p class="section-sub reveal">Do fundamento ao uso real — sem enrolação, sem teoria vazia.</p>
+    <div class="chapters">
+      <div class="chapter reveal">
+        <span class="chapter-num">00</span>
+        <div class="chapter-content">
+          <h3>Introdução — Por que DQL muda tudo</h3>
+          <p>O problema com quem usa Dynatrace no automático. O que é DQL e por que ele existe no Grail.</p>
+          <div class="chapter-tags"><span class="tag">contexto</span><span class="tag">Grail</span></div>
+        </div>
+        <span class="chapter-pages">~4 pág.</span>
+      </div>
+      <div class="chapter reveal">
+        <span class="chapter-num">01</span>
+        <div class="chapter-content">
+          <h3>Fundamentos — A base que ninguém explica</h3>
+          <p>Estrutura de pipeline, tipos de dados, timeframe, diferença entre fetch e timeseries, erros comuns de iniciantes.</p>
+          <div class="chapter-tags"><span class="tag">fetch</span><span class="tag">filter</span><span class="tag">summarize</span><span class="tag">timeseries</span></div>
+        </div>
+        <span class="chapter-pages">~10 pág.</span>
+      </div>
+      <div class="chapter reveal">
+        <span class="chapter-num">02</span>
+        <div class="chapter-content">
+          <h3>Filtragem e Enriquecimento de Dados</h3>
+          <p>filter, contains, regex, lookup entre fontes, if() condicional, campos calculados, Management Zones.</p>
+          <div class="chapter-tags"><span class="tag">lookup</span><span class="tag">if()</span><span class="tag">parse</span><span class="tag">MZ</span></div>
+        </div>
+        <span class="chapter-pages">~12 pág.</span>
+      </div>
+      <div class="chapter reveal">
+        <span class="chapter-num">03</span>
+        <div class="chapter-content">
+          <h3>Métricas e Séries Temporais</h3>
+          <p>Golden signals com DQL: latência, tráfego, erros, saturação. Agregações, percentis e formatação.</p>
+          <div class="chapter-tags"><span class="tag">golden signals</span><span class="tag">percentile</span><span class="tag">avg/sum</span></div>
+        </div>
+        <span class="chapter-pages">~12 pág.</span>
+      </div>
+      <div class="chapter reveal">
+        <span class="chapter-num">04</span>
+        <div class="chapter-content">
+          <h3>DQL para Logs — O poder do Grail</h3>
+          <p>fetch logs, parse de campos customizados, correlação com traces, detecção de anomalias em logs.</p>
+          <div class="chapter-tags"><span class="tag">fetch logs</span><span class="tag">parse</span><span class="tag">makeTimeseries</span></div>
+        </div>
+        <span class="chapter-pages">~10 pág.</span>
+      </div>
+      <div class="chapter reveal">
+        <span class="chapter-num">05</span>
+        <div class="chapter-content">
+          <h3>DQL em Dashboards e Workflows</h3>
+          <p>Tiles, variáveis dinâmicas, automação com SDK, envio de relatórios por e-mail, SRG com DQL.</p>
+          <div class="chapter-tags"><span class="tag">Workflows</span><span class="tag">SDK</span><span class="tag">SRG</span><span class="tag">automação</span></div>
+        </div>
+        <span class="chapter-pages">~10 pág.</span>
+      </div>
+      <div class="chapter reveal" style="border-bottom: none;">
+        <span class="chapter-num">06</span>
+        <div class="chapter-content">
+          <h3>⭐ Biblioteca de Queries Prontas</h3>
+          <p>35+ queries reais para usar imediatamente: erros por serviço, latência p95, CPU/memória, problemas Davis AI, relatório semanal automático.</p>
+          <div class="chapter-tags"><span class="tag">copy & paste</span><span class="tag">produção real</span><span class="tag">35+ queries</span></div>
+        </div>
+        <span class="chapter-pages">~12 pág.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CODE PREVIEW -->
+<section class="code-section">
+  <div class="section-inner">
+    <div class="section-label reveal">Preview</div>
+    <h2 class="section-title reveal">Queries prontas para copiar e usar</h2>
+    <p class="section-sub reveal">Você termina de ler e já aplica no mesmo dia. Assim é todo o conteúdo do guia.</p>
+    <div class="code-window reveal">
+      <div class="code-bar">
+        <div class="code-dot" style="background:#ff5f57"></div>
+        <div class="code-dot" style="background:#ffbd2e"></div>
+        <div class="code-dot" style="background:#28c940"></div>
+        <span>dynatrace_notebook.dql</span>
+      </div>
+      <div class="code-body">
+        <div><span class="c-comment">// Top 10 serviços com maior taxa de erro — últimas 24h</span></div>
+        <div><span class="c-keyword">fetch</span> <span class="c-var">logs</span><span class="c-op">,</span> <span class="c-keyword">from</span><span class="c-op">:</span> <span class="c-func">now</span><span class="c-op">()-</span><span class="c-num">24h</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">filter</span> <span class="c-var">severity</span> <span class="c-op">==</span> <span class="c-string">"ERROR"</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">summarize</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-var">total_errors</span> <span class="c-op">=</span> <span class="c-func">count</span><span class="c-op">(),</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-keyword">by</span><span class="c-op">: {</span><span class="c-var">dt.entity.service</span><span class="c-op">}</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">lookup</span> <span class="c-op">[</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-keyword">fetch</span> <span class="c-var">dt.entity.service</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-op">|</span> <span class="c-keyword">fields</span> <span class="c-var">id</span><span class="c-op">,</span> <span class="c-var">entity.name</span></div>
+        <div>&nbsp;&nbsp;<span class="c-op">],</span> <span class="c-var">sourceField</span><span class="c-op">:</span> <span class="c-var">dt.entity.service</span><span class="c-op">,</span> <span class="c-var">lookupField</span><span class="c-op">:</span> <span class="c-var">id</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">fields</span> <span class="c-var">Servico</span> <span class="c-op">=</span> <span class="c-var">lookup.entity.name</span><span class="c-op">,</span> <span class="c-var">Erros</span> <span class="c-op">=</span> <span class="c-var">total_errors</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">sort</span> <span class="c-var">Erros</span> <span class="c-keyword">desc</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">limit</span> <span class="c-num">10</span></div>
+        <br>
+        <div><span class="c-comment">// Latência p95 por endpoint com formatação em ms</span></div>
+        <div><span class="c-keyword">fetch</span> <span class="c-var">spans</span><span class="c-op">,</span> <span class="c-keyword">from</span><span class="c-op">:</span> <span class="c-func">now</span><span class="c-op">()-</span><span class="c-num">24h</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">summarize</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-var">p95</span> <span class="c-op">=</span> <span class="c-func">percentile</span><span class="c-op">(</span><span class="c-var">duration</span><span class="c-op">,</span> <span class="c-num">95</span><span class="c-op">),</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-keyword">by</span><span class="c-op">: {</span><span class="c-var">span.name</span><span class="c-op">}</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">fields</span> <span class="c-var">Endpoint</span> <span class="c-op">=</span> <span class="c-var">span.name</span><span class="c-op">,</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-var">p95_ms</span> <span class="c-op">=</span> <span class="c-func">round</span><span class="c-op">(</span><span class="c-var">p95</span> <span class="c-op">/</span> <span class="c-num">1000000</span><span class="c-op">,</span> <span class="c-var">decimals</span><span class="c-op">:</span> <span class="c-num">1</span><span class="c-op">)</span></div>
+        <div><span class="c-op">|</span> <span class="c-keyword">sort</span> <span class="c-var">p95_ms</span> <span class="c-keyword">desc</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AUTOR -->
+<section>
+  <div class="section-inner">
+    <div class="section-label reveal">Autor</div>
+    <h2 class="section-title reveal">Escrito por quem vive isso todo dia</h2>
+    <p class="section-sub reveal">Não é teoria. É o que funciona em produção real.</p>
+    <div class="author-card reveal">
+      <div class="author-avatar">OT</div>
+      <div class="author-body">
+        <h3>Consultor Sênior em Observabilidade</h3>
+        <div class="author-role">7+ anos · Dynatrace Certified · Grail & Classic</div>
+        <p>Especialista em Dynatrace com atuação em grandes empresas brasileiras dos setores financeiro, saúde, varejo e tecnologia. Trabalha diariamente com DQL, Workflows, SRG, dashboards executivos e automações de observabilidade.</p>
+        <p>Todo conteúdo deste guia vem de situações reais resolvidas em ambiente de produção — não de documentação reescrita.</p>
+        <div class="author-clients">
+          <span class="client-tag">Setor Financeiro</span>
+          <span class="client-tag">Saúde</span>
+          <span class="client-tag">Varejo</span>
+          <span class="client-tag">Governo</span>
+          <span class="client-tag">Fintechs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-section" id="comprar">
+  <div class="cta-box reveal">
+    <div class="cta-inner">
+      <h2>Comece a dominar DQL hoje</h2>
+      <p>Acesso imediato ao PDF completo. Sem mensalidade, sem renovação — você paga uma vez e usa para sempre.</p>
+      <div style="margin-bottom: 16px;">
+        <span class="price-old" style="font-size:18px">R$ 197</span>
+        &nbsp;
+        <span class="price-new" style="font-size:42px">R$ 97</span>
+      </div>
+      <a href="LINK_CAKTO_AQUI" class="btn-primary" style="font-size: 18px; padding: 18px 48px; display: inline-flex;">
+        <span>Quero o ebook agora</span>
+        <span>→</span>
+      </a>
+      <div class="guarantee">
+        🛡️ Garantia de 7 dias — se não gostar, devolvemos 100%
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="logo">Observa<span>Trace</span></div>
+  <p>Observabilidade inteligente, do código à decisão.</p>
+  <p style="font-size:12px; color: var(--muted);">© 2025 ObservaTrace. Todos os direitos reservados.</p>
+</footer>
+
+<script>
+  // Scroll reveal
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 60);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
